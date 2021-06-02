@@ -36,12 +36,14 @@ data <- left_join(cpiaucsl,cpilfesl, by = "DATE") %>%
   left_join(nroust, by = "DATE")
 ```
 
-## Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
-### Backward-looking inflation expecatation formula:
+### Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
+##### Backward-looking inflation expecatation formula:
 $$E_t\pi_{t+1}=\frac{1}{4}(\pi_{t-1}+\pi_{t-2}+\pi_{t-3}+\pi_{t-4})$$
-### Inflation surprises:
+
+##### Inflation surprises:
 $$\pi_t-E_t\pi_{t+1}$$
-### Unemployment gap:
+
+##### Unemployment gap:
 $$UE_t^{gap}=UE_t-UE_t^{natural}$$
 ```{r}
 data$cpiaucsl_a = (data$CPIAUCSL/lag(data$CPIAUCSL, 4) - 1) * 100 
@@ -63,7 +65,7 @@ data <- data[-c(1:which(data$DATE == "1984-10-01")),] %>%
 data$t <- seq.int(nrow(data))
 ```
 
-## Summary statistics and plot on the variables used 
+### Summary statistics and plot on the variables used 
 ```{r}
 table1::label(data$back_cpiaucsl_qa) <- "Inflation surprises"
 table1::label(data$back_cpilfesl_qa) <- "Core inflation surprises"
@@ -71,7 +73,7 @@ table1::label(data$un_gap) <- "Unemployment gap"
 table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = data)
 ```
 
-## Time series plots on the variables used
+### Time series plots on the variables used
 ```{r}
 date <- seq(data$DATE[1], data$DATE[145], by = '+3 month')
 plot(xts(data$back_cpiaucsl_qa, order.by = date), main = "CPI inflation surprise")
@@ -79,8 +81,8 @@ plot(xts(data$back_cpilfesl_qa, order.by = date), main = "Core CPI inflation sur
 plot(xts(data$un_gap, order.by = date), main = "Unemployment gap")
 ```
 
-## Scatter plot to show the Phillips curve relationship
-### Phillips curve with regular CPI inflation
+### Scatter plot to show the Phillips curve relationship
+#### Phillips curve with regular CPI inflation
 ```{r}
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpiaucsl_qa, color = label1, shape = label1)) + 
@@ -92,7 +94,7 @@ ggplot() +
 
 2008Q4 and 2020Q2 are out of bound so are not reported in the regular CPI inflation graph
 
-### Phillips curve with core CPI inflation
+#### Phillips curve with core CPI inflation
 ```{r}
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, color = label1, shape = label1)) + 
@@ -102,14 +104,15 @@ ggplot() +
   ylab("Core CPI Inflation surprises") 
 ```
 
-## OLS and IV estimate of the Phillips curve relationship for the full sample
-### OLS formula:
+### OLS and IV estimate of the Phillips curve relationship for the full sample
+##### OLS formula:
 $$\pi_t-E_t\pi_{t+1}=c+\kappa UE_t^{gap}+v_t$$
 
-### Instrumental variable, two-stage least squares formula:
-#### First stage regression:
+#### Instrumental variable, two-stage least squares formula:
+##### First stage regression:
 $$\widehat{UE_t^{gap}}=\alpha+\beta UE_{t-1}^{gap}+\epsilon_t$$
-#### Outcome regression:
+
+##### Outcome regression:
 $$\pi_t-E_t\pi_{t+1}=c+\kappa \widehat{UE_{t-1}^{gap}}+u_t$$
 ```{r}
 ## OLS Phillips curve model for regular CPI 
@@ -134,12 +137,12 @@ coeftest(full_ols_core, vcov.=NeweyWest(full_ols_core, prewhite = F, adjust = T)
 coeftest(full_iv_core, vcov.=NeweyWest(full_iv_core, prewhite = F, adjust = T))
 ```
 
-## Exhaustive search for the split point
-### Chow-test statistics:
+### Exhaustive search for the split point
+##### Chow-test statistics:
 $$C=\frac{RSS-RSS_1-RSS_2}{RSS_1+RSS_2}\times\frac{T-2k}{k}$$
-$k=$number of parameters in the model
+$k$ = number of parameters in the model
 
-### Analysis on the regular CPI inflation data
+#### Analysis on the regular CPI inflation data
 ```{r}
 RSS = sum(resid(full_iv)^2)
 
@@ -177,7 +180,7 @@ data <- data %>%
   ))
 ```
 
-### Analysis on the core CPI inflation data
+#### Analysis on the core CPI inflation data
 ```{r}
 RSS_core = sum(resid(full_iv_core)^2)
 chowc <- 0
@@ -211,7 +214,7 @@ data <- data %>%
   ))
 ```
 
-# Phillips curve on the regular CPI inflation data with the new split 
+### Phillips curve on the regular CPI inflation data with the new split 
 ```{r}
 data_pre = subset(data, label2 == "1985Q1-2008Q2")
 data_post = subset(data, (label2 == "2008Q3-2019Q4" | label2 == "2020Q1-2021Q1"))
@@ -229,7 +232,7 @@ ggplot() +
   ylab("CPI inflation surprises") 
 ```
 
-# Phillips curve on the core CPI inflation data with the new split
+### Phillips curve on the core CPI inflation data with the new split
 ```{r}
 data_prec = subset(data, label3 == "1985Q1-1990Q4")
 data_postc = subset(data, (label3 == "1991Q1-2019Q4" | label3 == "2020Q1-2021Q1"))
@@ -247,7 +250,7 @@ ggplot() +
   ylab("Core CPI inflation surprises") 
 ```
 
-## Seperate IV regression on the 2 sub-periods to find out how much the slope has changed
+### Seperate IV regression on the 2 sub-periods to find out how much the slope has changed
 ````{r}
 # Regular CPI inflation
 split1 <- ivreg(back_cpiaucsl_qa ~ un_gap | un_gap + lag(un_gap, 1), data = data[1:index-1,])
@@ -268,13 +271,13 @@ robust1c <- sqrt(diag(NeweyWest(split1c, prewhite = F, adjust = T)))
 robust2c <- sqrt(diag(NeweyWest(split2c, prewhite = F, adjust = T)))
 ```
 
-## Output the table of the regression results
-### Table for regular CPI inflation
+### Output the table of the regression results
+##### Table for regular CPI inflation
 ```{r table1, results = "asis"}
 stargazer(split1, split2, full_ols, full_iv, type = 'html', object.names = T, model.numbers = F, se = list(robust1, robust2, robust3, robust4), align = T, dep.var.labels = c("CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F)
 ```
 
-### Table for core CPI inflation
+##### Table for core CPI inflation
 ```{r table2, results = "asis"}
 stargazer(split1c, split2c, full_ols_core, full_iv_core, type = 'html', object.names = T, model.numbers = F, se = list(robust1c, robust2c, robust3c, robust4c), align = T, dep.var.labels = c("Core CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F)
 ```
