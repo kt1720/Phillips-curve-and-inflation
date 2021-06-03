@@ -5,12 +5,15 @@ date: "4/15/2021"
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r Knitr_Global_Options, include=FALSE, cache=FALSE}
 library(knitr)
 library(tidyverse)
 library(lubridate)
+library(dotenv)
+library(fredr)
 library(ggrepel)
 library(ggfortify)
 library(xts)
@@ -20,20 +23,32 @@ library(stargazer)
 opts_chunk$set(warning = FALSE, message = FALSE, 
                autodep = TRUE, tidy = FALSE, cache = TRUE,
                fig.dim=c(6,3.7))
+load_dot_env("cred.env")
 
 # Cpi series
-cpiaucsl <- read_csv("CPIAUCSL.csv")
+cpiaucsl <- fredr("CPIAUCSL", frequency = "q") %>%
+  na.omit() %>%
+  select(date, value) %>%
+  rename(CPIAUCSL = value)
 # Core cpi series
-cpilfesl <- read_csv("CPILFESL.csv") %>%
-  mutate(CPILFESL = as.double(CPILFESL))
+cpilfesl <- fredr("CPILFESL", frequency = "q") %>%
+  na.omit() %>%
+  select(date, value) %>%
+  rename(CPILFESL = value)
 # Unemployment rate
-unrate <- read_csv("UNRATE.csv")
+unrate <- fredr("UNRATE", frequency = "q") %>%
+  na.omit() %>%
+  select(date, value) %>%
+  rename(UNRATE = value)
 # Natural rate of unemployment 
-nroust <- read_csv("NROUST.csv")
+nroust <- fredr("NROUST", frequency = "q", observation_end = as.Date("2021-01-01")) %>%
+  na.omit() %>%
+  select(date, value) %>%
+  rename(NROUST = value)
 # Joining the data set together
-data <- left_join(cpiaucsl,cpilfesl, by = "DATE") %>%
-  left_join(unrate, by = "DATE") %>%
-  left_join(nroust, by = "DATE")
+data <- left_join(cpiaucsl,cpilfesl, by = "date") %>%
+  left_join(unrate, by = "date") %>%
+  left_join(nroust, by = "date")
 ```
 
 ### Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
@@ -56,10 +71,10 @@ data$un_gap <- data$UNRATE - data$NROUST
 
 # Delete observation before 1985Q1  
 # create a split point base on the cut-off point chosen in Figure 5 of Coiban and Gorodnichenko (2015) for my initial analysis
-data <- data[-c(1:which(data$DATE == "1984-10-01")),] %>%
+data <- data[-c(1:which(data$date == "1984-10-01")),] %>%
   mutate(label1 = case_when(
-    DATE < "2007-10-01"  ~ "1985Q1-2007Q3",
-    DATE >= "2007-10-01" ~ "2007Q4-2021Q1"
+    date < "2007-10-01"  ~ "1985Q1-2007Q3",
+    date >= "2007-10-01" ~ "2007Q4-2021Q1"
   ))
 # Create a time series stamp
 data$t <- seq.int(nrow(data))
@@ -73,9 +88,10 @@ table1::label(data$un_gap) <- "Unemployment gap"
 table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = data)
 ```
 
+
 ### Time series plots on the variables used
 ```{r}
-date <- seq(data$DATE[1], data$DATE[145], by = '+3 month')
+date <- seq(data$date[1], data$date[145], by = '+3 month')
 plot(xts(data$back_cpiaucsl_qa, order.by = date), main = "CPI inflation surprise")
 plot(xts(data$back_cpilfesl_qa, order.by = date), main = "Core CPI inflation surprise")
 plot(xts(data$un_gap, order.by = date), main = "Unemployment gap")
@@ -168,15 +184,15 @@ ifelse(chow>qalpha,
        "Decision: Reject Null of Stability with signif. level 5%",
        "Decision: Do NOT reject Null of Stability with signif. level 5%")
 ## Split point from the search
-data$DATE[index]
+data$date[index]
 ## Create a dummy base on the split 
-data$dummy = ifelse(data$DATE >= data$DATE[index], 1, 0)
+data$dummy = ifelse(data$date >= data$date[index], 1, 0)
 ## Create another label base on the split
 data <- data %>% 
   mutate(label2 = case_when(
-    DATE >= "1985-01-01" & DATE < "2008-07-01"   ~ "1985Q1-2008Q2",
-    DATE >= "2008-07-01" & DATE < "2020-01-01" ~ "2008Q3-2019Q4",
-    DATE >= "2020-01-01" ~ "2020Q1-2021Q1"
+    date >= "1985-01-01" & date < "2008-07-01"   ~ "1985Q1-2008Q2",
+    date >= "2008-07-01" & date < "2020-01-01" ~ "2008Q3-2019Q4",
+    date >= "2020-01-01" ~ "2020Q1-2021Q1"
   ))
 ```
 
@@ -202,15 +218,15 @@ ifelse(chowc>qalpha,
        "Decision: Reject Null of Stability with signif. level 5%",
        "Decision: Do NOT reject Null of Stability with signif. level 5%")
 ## Split point from the search
-data$DATE[indexc]
+data$date[indexc]
 ## Create a dummy base on the split 
-data$dummyc = ifelse(data$DATE >= data$DATE[indexc], 1, 0)
+data$dummyc = ifelse(data$date >= data$date[indexc], 1, 0)
 ## Create another label base on the split
 data <- data %>% 
   mutate(label3 = case_when(
-    DATE >= "1985-01-01" & DATE < "1991-01-01"   ~ "1985Q1-1990Q4",
-    DATE >= "1991-01-01" & DATE < "2020-01-01" ~ "1991Q1-2019Q4",
-    DATE >= "2020-01-01" ~ "2020Q1-2021Q1"
+    date >= "1985-01-01" & date < "1991-01-01"   ~ "1985Q1-1990Q4",
+    date >= "1991-01-01" & date < "2020-01-01" ~ "1991Q1-2019Q4",
+    date >= "2020-01-01" ~ "2020Q1-2021Q1"
   ))
 ```
 
@@ -221,8 +237,8 @@ data_post = subset(data, (label2 == "2008Q3-2019Q4" | label2 == "2020Q1-2021Q1")
 
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpiaucsl_qa, color = label2, shape = label2)) +
-  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = DATE), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = DATE), size = 2.5) +
+  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), size = 2.5) +
   geom_smooth(data = data_pre, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = "lm", se = F, color = "red", size = 0.75) +
   geom_smooth(data = data_post, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
   ggtitle("Time variation in the slope of the Phillips curve") +
@@ -239,8 +255,8 @@ data_postc = subset(data, (label3 == "1991Q1-2019Q4" | label3 == "2020Q1-2021Q1"
 
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, color = label3, shape = label3)) +
-  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = DATE), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = DATE), size = 2.5) +
+  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), size = 2.5) +
   geom_smooth(data = data_prec, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = "lm", se = F, color = "red", size = 0.75) +
   geom_smooth(data = data_postc, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
   coord_cartesian(ylim = c(-4, 3), xlim = c(-1.75, 8.5)) +
