@@ -22,9 +22,8 @@ library(arsenal)
 library(stargazer)
 opts_chunk$set(warning = FALSE, message = FALSE, 
                autodep = TRUE, tidy = FALSE, cache = TRUE,
-               fig.dim=c(6,3.7))
+               fig.dim=c(7.7,4.5))
 load_dot_env("cred.env")
-
 # Cpi series
 cpiaucsl <- fredr("CPIAUCSL", frequency = "q") %>%
   na.omit() %>%
@@ -51,7 +50,7 @@ data <- left_join(cpiaucsl,cpilfesl, by = "date") %>%
   left_join(nroust, by = "date")
 ```
 
-### Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
+#### Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
 ##### Backward-looking inflation expecatation formula:
 $$E_t\pi_{t+1}=\frac{1}{4}(\pi_{t-1}+\pi_{t-2}+\pi_{t-3}+\pi_{t-4})$$
 
