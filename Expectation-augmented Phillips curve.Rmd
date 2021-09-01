@@ -5,7 +5,6 @@ date: "4/15/2021"
 output:
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 ```{r Knitr_Global_Options, include=FALSE, cache=FALSE}
@@ -40,7 +39,7 @@ unrate <- fredr("UNRATE", frequency = "q") %>%
   select(date, value) %>%
   rename(UNRATE = value)
 # Natural rate of unemployment 
-nroust <- fredr("NROUST", frequency = "q", observation_end = as.Date("2021-01-01")) %>%
+nroust <- fredr("NROUST", frequency = "q", observation_end = as.Date("2021-04-01")) %>%
   na.omit() %>%
   select(date, value) %>%
   rename(NROUST = value)
@@ -73,7 +72,7 @@ data$un_gap <- data$UNRATE - data$NROUST
 data <- data[-c(1:which(data$date == "1984-10-01")),] %>%
   mutate(label1 = case_when(
     date < "2007-10-01"  ~ "1985Q1-2007Q3",
-    date >= "2007-10-01" ~ "2007Q4-2021Q1"
+    date >= "2007-10-01" ~ "2007Q4-2021Q2"
   ))
 # Create a time series stamp
 data$t <- seq.int(nrow(data))
@@ -90,7 +89,7 @@ table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = da
 
 ### Time series plots on the variables used
 ```{r}
-date <- seq(data$date[1], data$date[145], by = '+3 month')
+date <- seq(data$date[1], data$date[146], by = '+3 month')
 plot(xts(data$back_cpiaucsl_qa, order.by = date), main = "CPI inflation surprise")
 plot(xts(data$back_cpilfesl_qa, order.by = date), main = "Core CPI inflation surprise")
 plot(xts(data$un_gap, order.by = date), main = "Unemployment gap")
@@ -172,13 +171,13 @@ for(i in t:tt){
   sample2 <- ivreg(back_cpiaucsl_qa ~ un_gap | lag(un_gap, 1) , data = data2)
   RSS1 = sum(resid(sample1)^2)
   RSS2 = sum(resid(sample2)^2)
-  C = ((RSS - RSS1 - RSS2) / (RSS1 + RSS2)) * ((145 - 2*2) / 2)
+  C = ((RSS - RSS1 - RSS2) / (RSS1 + RSS2)) * ((146 - 2*2) / 2)
   if(C > chow){
     chow = C
     index = i
   }
 }
-qalpha = qf(0.95,2,145-4)
+qalpha = qf(0.95,2,146-4)
 ifelse(chow>qalpha, 
        "Decision: Reject Null of Stability with signif. level 5%",
        "Decision: Do NOT reject Null of Stability with signif. level 5%")
@@ -191,7 +190,7 @@ data <- data %>%
   mutate(label2 = case_when(
     date >= "1985-01-01" & date < "2008-07-01"   ~ "1985Q1-2008Q2",
     date >= "2008-07-01" & date < "2020-01-01" ~ "2008Q3-2019Q4",
-    date >= "2020-01-01" ~ "2020Q1-2021Q1"
+    date >= "2020-01-01" ~ "2020Q1-2021Q2"
   ))
 ```
 
@@ -207,7 +206,7 @@ for(i in t:tt){
   sample2 <- ivreg(back_cpilfesl_qa ~ un_gap | lag(un_gap, 1) , data = data2)
   RSS1c = sum(resid(sample1)^2)
   RSS2c = sum(resid(sample2)^2)
-  Cc = ((RSS_core - RSS1c - RSS2c) / (RSS1c + RSS2c)) * ((145 - 2*2) / 2)
+  Cc = ((RSS_core - RSS1c - RSS2c) / (RSS1c + RSS2c)) * ((146 - 2*2) / 2)
   if(Cc > chowc){
     chowc = Cc
     indexc = i
@@ -225,24 +224,24 @@ data <- data %>%
   mutate(label3 = case_when(
     date >= "1985-01-01" & date < "1991-01-01"   ~ "1985Q1-1990Q4",
     date >= "1991-01-01" & date < "2020-01-01" ~ "1991Q1-2019Q4",
-    date >= "2020-01-01" ~ "2020Q1-2021Q1"
+    date >= "2020-01-01" ~ "2020Q1-2021Q2"
   ))
 ```
 
 ### Phillips curve on the regular CPI inflation data with the new split 
 ```{r}
 data_pre = subset(data, label2 == "1985Q1-2008Q2")
-data_post = subset(data, (label2 == "2008Q3-2019Q4" | label2 == "2020Q1-2021Q1"))
+data_post = subset(data, (label2 == "2008Q3-2019Q4" | label2 == "2020Q1-2021Q2"))
 
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpiaucsl_qa, color = label2, shape = label2)) +
-  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), size = 2.5) +
+  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), size = 2.5) +
   geom_smooth(data = data_pre, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = "lm", se = F, color = "red", size = 0.75) +
   geom_smooth(data = data_post, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
   ggtitle("Time variation in the slope of the Phillips curve") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  coord_cartesian(ylim = c(-14, 5), xlim = c(-2, 8.5)) +
+  coord_cartesian(ylim = c(-14, 5.5), xlim = c(-2, 8.5)) +
   xlab("Unemployment gap") +
   ylab("CPI inflation surprises") 
 ```
@@ -250,15 +249,15 @@ ggplot() +
 ### Phillips curve on the core CPI inflation data with the new split
 ```{r}
 data_prec = subset(data, label3 == "1985Q1-1990Q4")
-data_postc = subset(data, (label3 == "1991Q1-2019Q4" | label3 == "2020Q1-2021Q1"))
+data_postc = subset(data, (label3 == "1991Q1-2019Q4" | label3 == "2020Q1-2021Q2"))
 
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, color = label3, shape = label3)) +
-  geom_text(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:145, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), size = 2.5) +
+  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), size = 2.5) +
   geom_smooth(data = data_prec, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = "lm", se = F, color = "red", size = 0.75) +
   geom_smooth(data = data_postc, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
-  coord_cartesian(ylim = c(-4, 3), xlim = c(-1.75, 8.5)) +
+  coord_cartesian(ylim = c(-4, 6.25), xlim = c(-1.75, 8.5)) +
   ggtitle("Time variation in the slope of the Phillips curve(Core cpi inflation)") +
    theme(plot.title = element_text(hjust = 0.5)) +
   xlab("Unemployment gap") +
