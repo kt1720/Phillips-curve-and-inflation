@@ -61,6 +61,7 @@ date <- seq(data$date[1], data$date[146], by = '+3 month')
 cpi_inflation_surprise <- xts(data$back_cpiaucsl_qa, order.by = date)
 plot(cpi_inflation_surprise, main = "CPI inflation surprise")
 ```
+
 # ARMA
 ## Check the ACF and PACF plots
 ```{r}

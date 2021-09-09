@@ -26,7 +26,10 @@ plot(cpi_inflation_surprise, main = "CPI inflation surprise")
 ```
 
 ![](Forecasting-Inflation_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
-\# ARMA \#\# Check the ACF and PACF plots
+
+# ARMA
+
+## Check the ACF and PACF plots
 
 ``` r
 aux <- acf2(cpi_inflation)
