@@ -38,6 +38,12 @@ data$t <- seq.int(nrow(data))
 ```
 
 <!-- ### Summary statistics and plot on the variables used  -->
+<!-- ```{r} -->
+<!-- table1::label(data$back_cpiaucsl_qa) <- "Inflation surprises" -->
+<!-- table1::label(data$back_cpilfesl_qa) <- "Core inflation surprises" -->
+<!-- table1::label(data$un_gap) <- "Unemployment gap" -->
+<!-- table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = data) -->
+<!-- ``` -->
 
 ### Time series plots on the variables used
 
@@ -46,19 +52,19 @@ date <- seq(data$date[1], data$date[146], by = '+3 month')
 plot(xts(data$back_cpiaucsl_qa, order.by = date), main = "CPI inflation surprise")
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
 ``` r
 plot(xts(data$back_cpilfesl_qa, order.by = date), main = "Core CPI inflation surprise")
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-2-2.png)<!-- -->
 
 ``` r
 plot(xts(data$un_gap, order.by = date), main = "Unemployment gap")
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-3-3.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-2-3.png)<!-- -->
 
 ### Scatter plot to show the Phillips curve relationship
 
@@ -73,7 +79,7 @@ ggplot() +
   ylab("CPI Inflation surprises") 
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 2008Q4 and 2020Q2 are out of bound so are not reported in the regular
 CPI inflation graph
@@ -89,7 +95,7 @@ ggplot() +
   ylab("Core CPI Inflation surprises") 
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 ### OLS and IV estimate of the Phillips curve relationship for the full sample
 
@@ -289,7 +295,7 @@ ggplot() +
   ylab("CPI inflation surprises") 
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 ### Phillips curve on the core CPI inflation data with the new split
 
@@ -310,7 +316,7 @@ ggplot() +
   ylab("Core CPI inflation surprises") 
 ```
 
-![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](Expectation-augmented-Phillips-curve_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ### Seperate IV regression on the 2 sub-periods to find out how much the slope has changed
 
@@ -377,4 +383,10 @@ robust2c <- sqrt(diag(NeweyWest(split2c, prewhite = F, adjust = T)))
 
 <!-- ### Output the table of the regression results -->
 <!-- ##### Table for regular CPI inflation -->
+<!-- ```{r table1, results = "asis"} -->
+<!-- stargazer(split1, split2, full_ols, full_iv, type = 'html', object.names = T, model.numbers = F, se = list(robust1, robust2, robust3, robust4), align = T, dep.var.labels = c("CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F) -->
+<!-- ``` -->
 <!-- ##### Table for core CPI inflation -->
+<!-- ```{r table2, results = "asis"} -->
+<!-- stargazer(split1c, split2c, full_ols_core, full_iv_core, type = 'html', object.names = T, model.numbers = F, se = list(robust1c, robust2c, robust3c, robust4c), align = T, dep.var.labels = c("Core CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F) -->
+<!-- ``` -->
