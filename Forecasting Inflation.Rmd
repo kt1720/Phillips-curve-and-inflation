@@ -1,0 +1,373 @@
+---
+title: 'Forecasting Models: Inflation'
+author: "Kyle Deng"
+date: "Last updated at `r format(Sys.time(), '%d %B, %Y')`"
+output: github_document
+---
+
+```{r Knitr_Global_Options, include=FALSE, cache=FALSE}
+library(knitr)
+library(astsa)
+library(tidyverse)
+library(dotenv)
+library(fredr)
+library(urca)
+library(rugarch)
+library(xts)
+library(tseries)
+library(forecast)
+library(kableExtra)
+library(xtable)
+opts_chunk$set(warning = FALSE, message = FALSE, 
+               autodep = TRUE, tidy = FALSE, cache = TRUE,
+               fig.dim=c(8,6))
+load_dot_env("cred.env")
+
+ggplot_forecast <- function(pd) {
+  # Adapted from Johnny Hong
+  p1a <- ggplot(data = pd, aes(x = date,y = observed))
+  p1a <- p1a + geom_line(col = 'red')
+  p1a <- p1a + geom_line(aes(y = fitted),col = 'blue')
+  p1a <- p1a + geom_line(aes(y = forecast)) +
+    geom_ribbon(aes(ymin = lo95,ymax = hi95),alpha = .25)
+  p1a <- p1a + scale_x_date(date_breaks = "24 month", 
+                            date_labels = "%Y")
+#  p1a <- p1a + scale_y_continuous(name = 'Units of Y')
+  p1a <- p1a + theme(axis.text.x = element_text(size=10))
+  p1a <- p1a + ggtitle("Model fit to CPI inflation data", 
+                       subtitle = "(black=forecast, blue=fitted, red=data, shadow=95% conf. interval)" ) +
+               xlab("Year")
+  p1a <- p1a +  theme(plot.title = element_text(hjust = 0.5))
+  p1a
+}
+```
+
+## Calculate the CPI inflation surprise
+```{r}
+data <- fredr("CPIAUCSL", frequency = "q") %>%
+  na.omit() %>%
+  select(date, value) %>%
+  rename(CPIAUCSL = value) %>%
+  mutate(cpiaucsl_a = (CPIAUCSL/lag(CPIAUCSL, 4) - 1) * 100,
+         cpiaucsl_q = (CPIAUCSL/lag(CPIAUCSL, 1) - 1) * 400,
+         back_cpiaucsl_qa = cpiaucsl_q - lag(cpiaucsl_a, 1)) %>%
+  filter(date > "1984-10-01")
+cpi_inflation <- ts(data$back_cpiaucsl_qa, start = c(1985, 1), end = c(2021, 2), frequency = 4)
+```
+
+## Plot the CPI inflation surprise
+```{r}
+date <- seq(data$date[1], data$date[146], by = '+3 month')
+cpi_inflation_surprise <- xts(data$back_cpiaucsl_qa, order.by = date)
+plot(cpi_inflation_surprise, main = "CPI inflation surprise")
+```
+# ARMA
+## Check the ACF and PACF plots
+```{r}
+aux <- acf2(cpi_inflation)
+```
+
+Both the ACF and PACF appear to cut off after lag 1 (1 year), that suggests that the series may be an ARMA(4,4) model.
+
+```{r}
+(ARMA44 <- arima(cpi_inflation, order = c(4, 0, 4)))
+```
+
+## Model diagnostic checks
+```{r}
+plot(ARMA44$residuals, ylab = 'Residuals of ARMA(4, 4)')
+aux <- acf2(ARMA44$residuals)
+```
+
+From the residuals vs. time plot, the residuals seem to oscillates around its mean 0 for the most part, though there are periods where the variance seems to be quite unstable.
+
+However, the ACF/PACF of the residuals do not show any significant correlation coefficient.
+
+## Ljung-Box test
+```{r}
+Box.test(ARMA44$residuals, lag = 4, type = c("Ljung-Box"))
+```
+
+The formal Ljung-Box test confirms that the hypothesis that the residuals of the model are white noise can not be rejected. Therefore, the model passes the diagnostic checks.
+
+Based on the BIC, select the 2 "best models" within ARMA($4\pm2$,$4\pm2$) in the training data (80%)
+```{r, message = F, warning = F}
+data$date[nrow(data) * 0.8]
+inf.train <- window(cpi_inflation, end = c(2013, 4))
+all.AR <- c(2, 3, 4, 5, 6)
+all.MA <- c(2, 3, 4, 5, 6)
+all.ARMA <- expand.grid(AR = all.AR, MA = all.MA)
+n.ARMA <- nrow(all.ARMA)
+bicm <- matrix(NA, n.ARMA, 1)
+rownames(bicm) <- paste0("ARMA(", all.ARMA$AR,",",
+all.ARMA$MA, ")")
+colnames(bicm) <- "BIC"
+for(i in 1:n.ARMA){
+  model = arima(inf.train, order = c(all.ARMA[i, 1], 0, all.ARMA[i, 2]))
+  bicm[i, 1] = BIC(model)
+}
+kable(bicm)
+```
+
+Based on the BIC, the two models selected are ARMA(2,5) and ARMA(2,2).
+
+## Model Estimation
+```{r}
+(ARMA25 <- arima(inf.train, order = c(2, 0, 5)))
+(ARMA22 <- arima(inf.train, order = c(2, 0, 2)))
+```
+
+## Diagnostic checks
+```{r}
+plot(ARMA25$residuals, ylab = 'Residuals', main = 'ARMA(2, 5)')
+plot(ARMA22$residuals, ylab = 'Residuals', main = 'ARMA(2, 2)')
+aux <- acf2(ARMA25$residuals, main = 'ARMA(2, 5)')
+aux <- acf2(ARMA22$residuals, main = 'ARMA(2, 2)')
+Box.test(ARMA25$residuals, lag = 4, type = c("Ljung-Box"))
+Box.test(ARMA22$residuals, lag = 4, type = c("Ljung-Box"))
+```
+
+There's concern related to the ACF/PACF plot for the ARMA(2, 2) model since the ACF and PACF are both significantly different from 0 at lag 1, however, the Ljung-Box test indicates the hypothesis of white noise cannot be rejected. Therefore, both models seem to be adequate. 
+
+## Rolling window forecast accuracy
+### ARMA(2,5)
+```{r}
+inf.fore <- matrix(NA, 146, 8)
+colnames(inf.fore) <- c("date" ,"observed", "fitted", "forecast", "lo80", "hi80", "lo95", "hi95")
+inf.fore = as.data.frame(inf.fore)
+inf.fore$date <- as.Date(time(cpi_inflation))
+inf.fore$observed <- cpi_inflation
+all_fit <- matrix(NA, 117, 29)
+for(i in 1:29){
+  b = i
+  e = 117 + i - 1
+  p = e + 1
+  inf25.sub <- cpi_inflation[b:e]
+  inf25.mod <- arima(inf25.sub, order = c(2, 0, 5))
+  inf25.pred <- forecast(inf25.sub, model = inf25.mod, h = 1)
+  fit <- inf25.pred$fitted
+  all_fit[, i] <- fit
+  inf.fore[p, 4:8] <- as.data.frame(inf25.pred)
+}
+inf.fore[1:117, 3] <- all_fit[, 1]
+ggplot_forecast(inf.fore)
+```
+
+### ARMA(2,2)
+```{r}
+inf1.fore <- matrix(NA, 146, 8)
+colnames(inf1.fore) <- c("date" ,"observed", "fitted", "forecast", "lo80", "hi80", "lo95", "hi95")
+inf1.fore = as.data.frame(inf1.fore)
+inf1.fore$date <- as.Date(time(cpi_inflation))
+inf1.fore$observed <- cpi_inflation
+all_fit1 <- matrix(NA, 117, 29)
+for(i in 1:29){
+  b = i
+  e = 117 + i - 1
+  p = e + 1
+  inf22.sub <- cpi_inflation[b:e]
+  inf22.mod <- arima(inf22.sub, order = c(2, 0, 2))
+  inf22.pred <- forecast(inf22.sub, model = inf22.mod, h = 1)
+  fit1 <- inf22.pred$fitted
+  all_fit1[, i] <- fit1
+  inf1.fore[p, 4:8] <- as.data.frame(inf22.pred)
+}
+inf1.fore[1:117, 3] <- all_fit1[, 1]
+ggplot_forecast(inf1.fore)
+```
+
+### MSFE and MAFE comparison
+```{r}
+MSFE = c(mean( ((inf.fore$observed-inf.fore$forecast)^2)[118:146]), mean( ((inf1.fore$observed-inf1.fore$forecast)^2)[118:146]))
+MAFE = c(mean( (abs(inf.fore$observed-inf.fore$forecast)[118:146])), mean( (abs(inf1.fore$observed-inf1.fore$forecast)[118:146])))
+error.all <- rbind(MSFE, MAFE)
+rownames(error.all) <- c('MSFE', 'MAFE')
+colnames(error.all) <- c('ARMA(2,5)', 'ARMA(2,2)')
+error.all
+```
+ARMA(2, 5) seems to be the more adequate model since it produces both lower MSFE and MAFE. 
+
+### Forecast for the next 4 quarters with an ARMA(2,5) model
+```{r}
+ARMA25 <- arima(cpi_inflation, order = c(2, 0, 5))
+ARMA25_forecast <- forecast(cpi_inflation, model = ARMA25, h = 4)
+autoplot(ARMA25_forecast)
+```
+
+
+# GARCH
+## Check the stationarity assumption by testing for unit root
+```{r}
+test.df <- ur.df(cpi_inflation, type = "drift", lags = 0)
+res.df <- data.frame(as.vector(test.df@teststat),
+                     test.df@cval) 
+names(res.df) <- c("Stat","CI 1pct", "CI 5pct", "CI 10pct")
+xtable(res.df) %>%
+  kable(digits=2) 
+```
+Since $\tau_2$ is much smaller than its critical value and $\phi_1$ is much bigger than its critical value, we can conclude that the inflation series is stationary.
+
+Check the square of the inflation series to find the appropriate orders of the GARCH model
+```{r}
+aux <- acf2(cpi_inflation^2)
+```
+
+None of the lag seems to be statistically significant.
+
+Again, proceed to select the "best model" within GARCH($2\pm2$,$2\pm2$) base on their BIC value in the training data
+```{r}
+all.ar <- c(0, 1, 2, 3, 4)
+all.ch <- c(0, 1, 2, 3, 4)
+all.GARCH <- expand.grid(ar = all.ar, ch = all.ch)[-1, ] # Remove ARCH(0, 0) since its no different than estimating the conditional mean model on its own
+n.GARCH <- nrow(all.GARCH)
+bic.GARCH <- matrix(NA, n.GARCH, 1)
+rownames(bic.GARCH) <- paste0("GARCH(", all.GARCH$ar,",",
+all.GARCH$ch, ")")
+colnames(bic.GARCH) <- "BIC"
+for(i in 1:n.GARCH){
+  spec <- ugarchspec(variance.model = list(model = 'sGARCH',
+                     garchOrder = c(all.GARCH[i, 1], all.GARCH[i, 2])), 
+                     mean.model = list(armaOrder = c(2, 5),
+                     include.mean = F))
+  model = ugarchfit(data = inf.train, spec, solver = "hybrid")
+  bic.GARCH[i, 1] = infocriteria(model)[2, 1]
+}
+kable(bic.GARCH)
+```
+
+ARCH(2) seems to be the most appropriate model since it produces the lowest BIC. 
+
+## Model Estimation and diagnostic check
+```{r}
+arch2 <- ugarchspec(variance.model = list(model = 'sGARCH',
+                    garchOrder = c(2, 0)), mean.model = list(armaOrder = c(2, 5),
+                                                             include.mean = F))
+(ARCH2 <- ugarchfit(data = inf.train, arch2))
+```
+
+The model seems to be adequate since it passes all the diagnostic check at the 5% level of significance, the only concern is both $\alpha_1$ and $\alpha_2$ are statistically insignificant at the 5% level under the robust standard errors.
+
+## Rolling window forecast accuracy
+### ARCH(2)
+```{r}
+inf2.fore <- matrix(NA, 146, 8)
+colnames(inf2.fore) <- c("date" ,"observed", "fitted", "forecast", "lo80", "hi80", "lo95", "hi95")
+inf2.fore = as.data.frame(inf2.fore)
+inf2.fore$date <- as.Date(time(cpi_inflation))
+inf2.fore$observed <- cpi_inflation
+all_fit2 <- matrix(NA, 117, 29)
+
+for(i in 1:29){
+  b = i
+  e = 117 + i - 1
+  p = e + 1
+  inf2.sub <- cpi_inflation[b:e]
+  inf2.spec <- ugarchspec(variance.model = list(model = 'sGARCH',
+                          garchOrder = c(2, 0)), 
+                          mean.model = list(armaOrder = c(2, 5),
+                          include.mean = F))
+  inf2.mod <- ugarchfit(data = inf2.sub, inf2.spec, solver = "hybrid")
+  inf2.pred <- ugarchforecast(inf2.mod, n.ahead = 1)
+  fit <- inf2.mod@fit$fitted.values
+  all_fit2[, i] <- fit
+  prediction <- inf2.pred@forecast$seriesFor[1, 1]
+  sigma <- inf2.pred@forecast$sigmaFor[1, 1]
+  inf2.fore[p, 4:8] <- as.data.frame(matrix(c(prediction, prediction - 1.28*sigma, 
+                                              prediction + 1.28*sigma, prediction - 1.96*sigma,
+                                              prediction + 1.96*sigma), 1, 5))
+}
+inf2.fore[1:117, 3] <- all_fit2[, 1]
+ggplot_forecast(inf2.fore)
+```
+
+### MSFE and MAFE comparison
+```{r}
+(error.all <- cbind(error.all, "ARCH(2)" = c(mean(((inf2.fore$observed - inf2.fore$forecast)^2)[118:146]),
+                                         mean((abs(inf2.fore$observed - inf2.fore$forecast)[118:146])))))
+```
+Unsurprisingly, the ARCH(2) model does not perform better than the ARMA(2, 5) mainly due to the two spikes in the forecast near year 2015 and 2019. Therefore, the ARMA(2,5) forecast is the best model available.
+
+
+<!-- ### Recursive forecast to compare MSFE and MAFE for all possible ARMA and GARCH models -->
+<!-- ```{r} -->
+<!-- library(doParallel) -->
+<!-- cl <- makePSOCKcluster(5) -->
+<!-- registerDoParallel(cl) -->
+
+<!-- AR <- c(2, 3, 4, 5, 6) -->
+<!-- MA <- c(2, 3, 4, 5, 6) -->
+<!-- ARMA <- expand.grid(AR = AR, MA = MA) -->
+<!-- n1.ARMA <- nrow(ARMA) -->
+<!-- ALL_error <- matrix(NA, n1.ARMA, 2) -->
+<!-- rownames(ALL_error) <- paste0("ARMA(", ARMA$AR,",", -->
+<!-- ARMA$MA, ")") -->
+<!-- colnames(ALL_error) <- c("MSFE", "MAFE") -->
+
+<!-- for(f in 1:n1.ARMA){ -->
+<!--   print(paste0(f, " out of ", n1.ARMA)) -->
+<!--   a = ARMA[f, 1] -->
+<!--   q = ARMA[f, 2] -->
+<!--   ret.fore1 <- matrix(NA, 29, 2) -->
+<!--   for(i in 1:29){ -->
+<!--     tryCatch({ -->
+<!--     b = i -->
+<!--     e = 117 + i - 1 -->
+<!--     p = e + 1 -->
+<!--     ret.sub <- cpi_inflation[b:e] -->
+<!--     ret.mod <- arima(ret.sub, order = c(a, 0, q)) -->
+<!--     ret.pred <- forecast(ret.sub, model = ret.mod, h = 1) -->
+<!--     ret.fore1[i, ] <- cbind(cpi_inflation[p], ret.pred$mean)} -->
+<!--     , error = function(e){cat("ERROR :",conditionMessage(e), "\n")}) -->
+<!--   } -->
+<!--   ALL_error[f, 1] = mean((ret.fore1[, 1] - ret.fore1[, 2])^2) -->
+<!--   ALL_error[f, 2] = mean(abs(ret.fore1[, 1] - ret.fore1[, 2])) -->
+<!-- }   -->
+
+<!-- ar <- c(0, 1, 2, 3, 4) -->
+<!-- ch <- c(0, 1, 2, 3, 4) -->
+<!-- ARCH <- expand.grid(ar = ar, ch = ch)[-1,] -->
+<!-- n1.ARCH <- nrow(ARCH) -->
+<!-- ALL2_error <- matrix(NA, n1.ARCH, 2) -->
+<!-- rownames(ALL2_error) <- paste0("ARCH(", ARCH$ar,",", -->
+<!-- ARCH$ch, ")") -->
+<!-- colnames(ALL2_error) <- c("MSFE", "MAFE") -->
+
+<!-- for(f in 1:n1.ARCH){ -->
+<!--   print(paste0(f, " out of ", n1.ARCH)) -->
+<!--   a = ARCH[f, 1] -->
+<!--   q = ARCH[f, 2] -->
+<!--   ret.fore2 <- matrix(NA, 29, 2) -->
+<!--   for(i in 1:29){ -->
+<!--     tryCatch({ -->
+<!--     b = i -->
+<!--     e = 117 + i - 1 -->
+<!--     p = e + 1 -->
+<!--     ret.sub <- cpi_inflation[b:e] -->
+<!--     spec <- ugarchspec(variance.model = list(model = 'sGARCH', -->
+<!--                      garchOrder = c(a, q)),  -->
+<!--                      mean.model = list(armaOrder = c(2, 5), -->
+<!--                      include.mean = F)) -->
+<!--     model = ugarchfit(data = ret.sub, spec, solver = "hybrid") -->
+<!--     pred <- ugarchforecast(model, n.ahead = 1) -->
+<!--     ret.fore2[i, ] <- cbind(cpi_inflation[p], pred@forecast$seriesFor[1, 1])} -->
+<!--     , error = function(e){cat("ERROR :",conditionMessage(e), "\n")}) -->
+<!--   } -->
+<!--   ALL2_error[f, 1] = mean((ret.fore2[, 1] - ret.fore2[, 2])^2) -->
+<!--   ALL2_error[f, 2] = mean(abs(ret.fore2[, 1] - ret.fore2[, 2])) -->
+<!-- }   -->
+<!-- rbind(ALL_error, ALL2_error) -->
+<!-- stopCluster(cl) -->
+<!-- ``` -->
+<!-- GARCH(1,3) is the most appropriate model given the results. -->
+
+<!-- ### Estimation of GARCH(1,3) -->
+<!-- ```{r} -->
+<!-- arch13 <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 3)),  -->
+<!--                      mean.model = list(armaOrder = c(2, 5), -->
+<!--                      include.mean = F)) -->
+<!-- ARCH13 <- ugarchfit(data = cpi_inflation, arch13) -->
+<!-- ugarchforecast(ARCH13, n.ahead = 4) -->
+<!-- ``` -->
+
+
+##
