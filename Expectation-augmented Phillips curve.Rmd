@@ -3,7 +3,7 @@ title: "Expectation-augmented Phillips curve"
 author: "Kyle Deng"
 date: "4/15/2021"
 output:
-  github_document:
+  html_document:
     df_print: paged
 ---
 
@@ -19,7 +19,7 @@ library(xts)
 library(AER)
 library(arsenal)
 library(stargazer)
-opts_chunk$set(warning = FALSE, message = FALSE, 
+opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, 
                autodep = TRUE, tidy = FALSE, cache = TRUE,
                fig.dim=c(7.7,4.5))
 load_dot_env("cred.env")
@@ -49,7 +49,9 @@ data <- left_join(cpiaucsl,cpilfesl, by = "date") %>%
   left_join(nroust, by = "date")
 ```
 
+
 #### Obtain the inflation surprises and unemployment gap according to Coiban and Gorodnichenko(2015).
+
 ##### Backward-looking inflation expecatation formula:
 $$E_t\pi_{t+1}=\frac{1}{4}(\pi_{t-1}+\pi_{t-2}+\pi_{t-3}+\pi_{t-4})$$
 
@@ -78,13 +80,13 @@ data <- data[-c(1:which(data$date == "1984-10-01")),] %>%
 data$t <- seq.int(nrow(data))
 ```
 
-<!-- ### Summary statistics and plot on the variables used  -->
-<!-- ```{r} -->
-<!-- table1::label(data$back_cpiaucsl_qa) <- "Inflation surprises" -->
-<!-- table1::label(data$back_cpilfesl_qa) <- "Core inflation surprises" -->
-<!-- table1::label(data$un_gap) <- "Unemployment gap" -->
-<!-- table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = data) -->
-<!-- ``` -->
+### Summary statistics and plot on the variables used
+```{r}
+table1::label(data$back_cpiaucsl_qa) <- "Inflation surprises"
+table1::label(data$back_cpilfesl_qa) <- "Core inflation surprises"
+table1::label(data$un_gap) <- "Unemployment gap"
+table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = data)
+```
 
 
 ### Time series plots on the variables used
@@ -285,13 +287,14 @@ robust1c <- sqrt(diag(NeweyWest(split1c, prewhite = F, adjust = T)))
 robust2c <- sqrt(diag(NeweyWest(split2c, prewhite = F, adjust = T)))
 ```
 
-<!-- ### Output the table of the regression results -->
-<!-- ##### Table for regular CPI inflation -->
-<!-- ```{r table1, results = "asis"} -->
-<!-- stargazer(split1, split2, full_ols, full_iv, type = 'html', object.names = T, model.numbers = F, se = list(robust1, robust2, robust3, robust4), align = T, dep.var.labels = c("CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F) -->
-<!-- ``` -->
+### Output the table of the regression results
+##### Table for regular CPI inflation
+```{r table1, results = "asis"}
+stargazer(split1, split2, full_ols, full_iv, type = 'html', object.names = T, model.numbers = F, se = list(robust1, robust2, robust3, robust4), align = T, dep.var.labels = c("CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F)
+```
 
-<!-- ##### Table for core CPI inflation -->
-<!-- ```{r table2, results = "asis"} -->
-<!-- stargazer(split1c, split2c, full_ols_core, full_iv_core, type = 'html', object.names = T, model.numbers = F, se = list(robust1c, robust2c, robust3c, robust4c), align = T, dep.var.labels = c("Core CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F) -->
-<!-- ``` -->
+
+##### Table for core CPI inflation
+```{r table2, results = "asis"}
+stargazer(split1c, split2c, full_ols_core, full_iv_core, type = 'html', object.names = T, model.numbers = F, se = list(robust1c, robust2c, robust3c, robust4c), align = T, dep.var.labels = c("Core CPI inflation surprises"), covariate.labels = c("Unemployment gap hat"), header = F)
+```
