@@ -1,7 +1,7 @@
 ---
 title: "Expectation-augmented Phillips curve"
 author: "Kyle Deng"
-date: "4/15/2021"
+date: "Last updated at `r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     df_print: paged
@@ -145,13 +145,29 @@ robust3 <- sqrt(diag(NeweyWest(full_ols, prewhite = F, adjust = T)))
 robust4 <- sqrt(diag(NeweyWest(full_iv, prewhite = F, adjust = T)))
 robust3c <- sqrt(diag(NeweyWest(full_ols_core, prewhite = F, adjust = T)))
 robust4c <- sqrt(diag(NeweyWest(full_iv_core, prewhite = F, adjust = T)))
+```
 
-# Estimates from the models with Newey-West standard errors
+#### Estimates for the models with Newey-West standard errors
+##### OLS Phillips curve model for regular CPI
+```{r}
 coeftest(full_ols, vcov.=NeweyWest(full_ols, prewhite = F, adjust = T))
+```
+
+##### IV Phillips curve model for regular CPI 
+```{r}
 coeftest(full_iv, vcov.=NeweyWest(full_iv, prewhite = F, adjust = T))
+```
+
+##### OLS Phillips curve model for core CPI 
+```{r}
 coeftest(full_ols_core, vcov.=NeweyWest(full_ols_core, prewhite = F, adjust = T))
+```
+
+##### IV Phillips curve model for core CPI 
+```{r}
 coeftest(full_iv_core, vcov.=NeweyWest(full_iv_core, prewhite = F, adjust = T))
 ```
+
 
 ### Exhaustive search for the split point
 ##### Chow-test statistics:
@@ -191,8 +207,7 @@ data$dummy = ifelse(data$date >= data$date[index], 1, 0)
 data <- data %>% 
   mutate(label2 = case_when(
     date >= "1985-01-01" & date < "2008-07-01"   ~ "1985Q1-2008Q2",
-    date >= "2008-07-01" & date < "2020-01-01" ~ "2008Q3-2019Q4",
-    date >= "2020-01-01" ~ "2020Q1-2021Q2"
+    date >= "2008-07-01" ~ "2008Q3-2021Q2"
   ))
 ```
 
@@ -225,22 +240,28 @@ data$dummyc = ifelse(data$date >= data$date[indexc], 1, 0)
 data <- data %>% 
   mutate(label3 = case_when(
     date >= "1985-01-01" & date < "1991-01-01"   ~ "1985Q1-1990Q4",
-    date >= "1991-01-01" & date < "2020-01-01" ~ "1991Q1-2019Q4",
-    date >= "2020-01-01" ~ "2020Q1-2021Q2"
+    date >= "1991-01-01" ~ "1991Q1-2021Q2"
   ))
 ```
+Although the Chow test indicates the core CPI inflation series is stable over the entire sample period, I still proceed with the split point to investigate the relationship out of curiosity.  
 
 ### Phillips curve on the regular CPI inflation data with the new split 
 ```{r}
 data_pre = subset(data, label2 == "1985Q1-2008Q2")
-data_post = subset(data, (label2 == "2008Q3-2019Q4" | label2 == "2020Q1-2021Q2"))
+data_post = subset(data, label2 == "2008Q3-2021Q2")
 
 ggplot() +
-  geom_point(data = data, mapping = aes(x = un_gap, y = back_cpiaucsl_qa, color = label2, shape = label2)) +
-  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, label = date), size = 2.5) +
-  geom_smooth(data = data_pre, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = "lm", se = F, color = "red", size = 0.75) +
-  geom_smooth(data = data_post, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
+  geom_point(data = data, mapping = aes(x = un_gap, y = back_cpiaucsl_qa, 
+                                        color = label2, shape = label2)) +
+  geom_text(data = data[142:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, 
+                                        label = date), position=position_dodge(width=1.5), 
+                                    hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[142:146, ], aes(x = un_gap, y = back_cpiaucsl_qa, 
+                                              label = date), size = 2.5) +
+  geom_smooth(data = data_pre, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), 
+              method = "lm", se = F, color = "#F8766D", size = 1) +
+  geom_smooth(data = data_post, mapping = aes(x = un_gap, y = back_cpiaucsl_qa), 
+              method = 'lm', se = F, color = "#00BFC4", size = 1) +
   ggtitle("Time variation in the slope of the Phillips curve") +
   theme(plot.title = element_text(hjust = 0.5)) +
   coord_cartesian(ylim = c(-14, 5.5), xlim = c(-2, 8.5)) +
@@ -251,17 +272,22 @@ ggplot() +
 ### Phillips curve on the core CPI inflation data with the new split
 ```{r}
 data_prec = subset(data, label3 == "1985Q1-1990Q4")
-data_postc = subset(data, (label3 == "1991Q1-2019Q4" | label3 == "2020Q1-2021Q2"))
+data_postc = subset(data, label3 == "1991Q1-2021Q2")
 
 ggplot() +
-  geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, color = label3, shape = label3)) +
-  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), size = 2.5) +
-  geom_smooth(data = data_prec, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = "lm", se = F, color = "red", size = 0.75) +
-  geom_smooth(data = data_postc, mapping = aes(x = un_gap, y = back_cpilfesl_qa), method = 'lm', se = F, color = "darkgreen", size = 0.75) +
+  geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, 
+                                        color = label3, shape = label3)) +
+  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), 
+            position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
+  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, 
+                                              label = date), size = 2.5) +
+  geom_smooth(data = data_prec, mapping = aes(x = un_gap, y = back_cpilfesl_qa), 
+              method = "lm", se = F, color = "#F8766D", size = 1) +
+  geom_smooth(data = data_postc, mapping = aes(x = un_gap, y = back_cpilfesl_qa), 
+              method = 'lm', se = F, color = "#00BFC4", size = 1) +
   coord_cartesian(ylim = c(-4, 6.25), xlim = c(-1.75, 8.5)) +
-  ggtitle("Time variation in the slope of the Phillips curve(Core cpi inflation)") +
-   theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Time variation in the slope of the Phillips curve (Core CPI inflation)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
   xlab("Unemployment gap") +
   ylab("Core CPI inflation surprises") 
 ```
@@ -275,17 +301,36 @@ robust1 <- sqrt(diag(NeweyWest(split1, prewhite = F, adjust = T)))
 split2 <- ivreg(back_cpiaucsl_qa ~ un_gap | un_gap + lag(un_gap, 1), data = data[index:nrow(data),])
 robust2 <- sqrt(diag(NeweyWest(split2, prewhite = F, adjust = T)))
 # summary(split2)
-coeftest(split1, vcov.= NeweyWest(split1, prewhite = F, adjust = T))
-coeftest(split2, vcov.= NeweyWest(split2, prewhite = F, adjust = T))
+```
 
+##### 1985Q1-2008Q2 with rugular CPI inflation
+```{r}
+coeftest(split1, vcov.= NeweyWest(split1, prewhite = F, adjust = T))
+```
+
+##### 2008Q3-2021Q2 with rugular CPI inflation
+```{r}
+coeftest(split2, vcov.= NeweyWest(split2, prewhite = F, adjust = T))
+```
+
+```{r}
 # Core CPI inflation
 split1c <- ivreg(back_cpilfesl_qa ~ un_gap | lag(un_gap, 1), data = data[1:indexc-1,])
 split2c <- ivreg(back_cpilfesl_qa ~ un_gap | lag(un_gap, 1), data = data[indexc:nrow(data),])
-coeftest(split1c, vcov.= NeweyWest(split1c, prewhite = F, adjust = T))
-coeftest(split2c, vcov.= NeweyWest(split2c, prewhite = F, adjust = T))
 robust1c <- sqrt(diag(NeweyWest(split1c, prewhite = F, adjust = T)))
 robust2c <- sqrt(diag(NeweyWest(split2c, prewhite = F, adjust = T)))
 ```
+
+##### 1985Q1-1990Q4 with core CPI inflation
+```{r}
+coeftest(split1c, vcov.= NeweyWest(split1c, prewhite = F, adjust = T))
+```
+
+##### 1991Q1-2021Q2 with core CPI inflation
+```{r}
+coeftest(split2c, vcov.= NeweyWest(split2c, prewhite = F, adjust = T))
+```
+
 
 ### Output the table of the regression results
 ##### Table for regular CPI inflation
