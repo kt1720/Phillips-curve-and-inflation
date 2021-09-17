@@ -4,7 +4,7 @@ This repository includes two parts of the analysis I have done on the US inflati
 
 The first part of the analysis investigates the stability of the expectation-augmented Phillips curve: 
 
-* [Expectation-augmented Phillips curve](https://github.com/kt1720/Phillips-curve/blob/main/Expectation-augmented-Phillips-curve.md)
+* [Expectation-augmented Phillips curve](https://kt1720.github.io/Phillips-curve-and-inflation/Expectation-augmented-Phillips-curve.html)
 
 The second part of the analysis tries to forecast (Using time-varying conditional mean and conditional heteroskedasticity model) the US inflation rate for the next four quarters:
 
