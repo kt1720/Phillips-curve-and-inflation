@@ -80,7 +80,7 @@ data <- data[-c(1:which(data$date == "1984-10-01")),] %>%
 data$t <- seq.int(nrow(data))
 ```
 
-### Summary statistics and plot on the variables used
+### Summary statistics
 ```{r}
 table1::label(data$back_cpiaucsl_qa) <- "Inflation surprises"
 table1::label(data$back_cpilfesl_qa) <- "Core inflation surprises"
@@ -89,7 +89,7 @@ table1::table1(~back_cpiaucsl_qa + back_cpilfesl_qa + un_gap | label1, data = da
 ```
 
 
-### Time series plots on the variables used
+### Time series plots
 ```{r}
 date <- seq(data$date[1], data$date[146], by = '+3 month')
 plot(xts(data$back_cpiaucsl_qa, order.by = date), main = "CPI inflation surprise")
