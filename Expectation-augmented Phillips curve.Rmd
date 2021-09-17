@@ -277,9 +277,9 @@ data_postc = subset(data, label3 == "1991Q1-2021Q2")
 ggplot() +
   geom_point(data = data, mapping = aes(x = un_gap, y = back_cpilfesl_qa, 
                                         color = label3, shape = label3)) +
-  geom_text(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), 
+  geom_text(data = data[142:146, ], aes(x = un_gap, y = back_cpilfesl_qa, label = date), 
             position=position_dodge(width=1.5), hjust = 1.5, size = 2.5) +
-  geom_text_repel(data = data[141:146, ], aes(x = un_gap, y = back_cpilfesl_qa, 
+  geom_text_repel(data = data[142:146, ], aes(x = un_gap, y = back_cpilfesl_qa, 
                                               label = date), size = 2.5) +
   geom_smooth(data = data_prec, mapping = aes(x = un_gap, y = back_cpilfesl_qa), 
               method = "lm", se = F, color = "#F8766D", size = 1) +
