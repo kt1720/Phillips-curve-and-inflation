@@ -1,8 +1,8 @@
 # Expectations-augmented Phillips curve and Inflation forecast
 
-This repository includes two parts of the analysis I have done on the US inflation and unemployment data.
+433 Final Project
 
-The first part of the analysis investigates the stability of the expectation-augmented Phillips curve: 
+The first part of the analysis investigates the stability of the expectation-augmented Phillips curve from 1985-now: 
 
 * [Expectation-augmented Phillips curve](https://kt1720.github.io/Phillips-curve-and-inflation/Expectation-augmented-Phillips-curve.html)
 
